@@ -6,7 +6,6 @@
 import logging
 import os
 import queue
-import shutil
 import threading
 import tkinter as tk
 import urllib.parse
@@ -244,10 +243,7 @@ class App(tk.Tk):
                                          download_dir=args["download_dir"],
                                          upload_dir=args["upload_dir"])
                 else:
-                    src = os.path.join(args["download_dir"], filename)
-                    dst = os.path.join(args["upload_dir"], filename)
-                    shutil.move(src, dst)
-                    log.info("Moved %s -> %s", src, dst)
+                    log.info("Saved %s", os.path.join(args["download_dir"], filename))
                     ok = True
 
                 if ok:
