@@ -362,3 +362,9 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 /history.json
+
+# Python virtual environment
+archivedownloader/
+
+# Claude Code
+.claude/
