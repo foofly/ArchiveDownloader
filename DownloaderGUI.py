@@ -4,14 +4,30 @@
 # ///
 
 import logging
+import os
 import queue
+import shutil
 import threading
 import tkinter as tk
+import urllib.parse
 from tkinter import filedialog, messagebox, scrolledtext, ttk
 
 import ArchiveDownloader as ad
 
 _SENTINEL = object()
+
+
+def _extract_identifier(url_or_id):
+    """Return the Archive.org item identifier from a URL or bare identifier."""
+    parsed = urllib.parse.urlparse(url_or_id)
+    if parsed.scheme in ("http", "https"):
+        parts = [p for p in parsed.path.split("/") if p]
+        # /details/<id>  or  /download/<id>  or  /metadata/<id>
+        if len(parts) >= 2 and parts[0] in ("details", "download", "metadata"):
+            return parts[1]
+        if parts:
+            return parts[-1]
+    return url_or_id.strip()
 
 
 class TextHandler(logging.Handler):
@@ -44,12 +60,11 @@ class App(tk.Tk):
 
         self._fields = {}
         rows = [
-            ("Archive ID *",   "id",           False),
-            ("Series *",       "series",       False),
-            ("Pattern *",      "pattern",      False),
-            ("Download Dir",   "download_dir", "dir"),
-            ("Upload Dir",     "upload_dir",   "dir"),
-            ("History File",   "history_file", "file"),
+            ("Archive.org URL *", "url",          False),
+            ("Pattern",           "pattern",      False),
+            ("Download Dir",      "download_dir", "dir"),
+            ("Upload Dir",        "upload_dir",   "dir"),
+            ("History File",      "history_file", "file"),
         ]
 
         for i, (label, key, browse) in enumerate(rows):
@@ -67,6 +82,10 @@ class App(tk.Tk):
                 ttk.Button(form, text="Browse",
                            command=lambda k=key: self._browse_file(k)
                            ).grid(row=i, column=2, **pad)
+
+        # Helper text under Pattern
+        ttk.Label(form, text="(optional — if omitted, files are moved as-is)",
+                  foreground="grey").grid(row=1, column=1, sticky=tk.W, padx=8)
 
         # Defaults
         self._fields["download_dir"][0].set(ad.DOWNLOAD_DIR)
@@ -132,11 +151,9 @@ class App(tk.Tk):
         return {k: v.get().strip() for k, (v, _) in self._fields.items()}
 
     def _validate(self, args):
-        for key in ("id", "series", "pattern"):
-            if not args[key]:
-                label = {"id": "Archive ID", "series": "Series", "pattern": "Pattern"}[key]
-                messagebox.showerror("Missing field", f"{label} is required.")
-                return False
+        if not args["url"]:
+            messagebox.showerror("Missing field", "Archive.org URL is required.")
+            return False
         try:
             int(self._retries_var.get())
         except ValueError:
@@ -176,14 +193,12 @@ class App(tk.Tk):
         log = logging.getLogger("gui_run")
         log.setLevel(getattr(logging, args["log_level"]))
         log.propagate = False
-        # Remove any handlers left from a previous run
         log.handlers.clear()
         handler = TextHandler(self._log_queue)
         handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s",
                                                datefmt="%Y-%m-%d %H:%M:%S"))
         log.addHandler(handler)
 
-        # Patch the module-level logger so ad.* functions emit to our handler
         ad_logger = logging.getLogger(ad.__name__)
         ad_logger.setLevel(getattr(logging, args["log_level"]))
         ad_logger.propagate = False
@@ -191,8 +206,11 @@ class App(tk.Tk):
         ad_logger.addHandler(handler)
 
         try:
-            identifier = args["id"]
+            identifier = _extract_identifier(args["url"])
+            pattern = args["pattern"]
             retries = args["retries"]
+
+            log.info("Identifier: %s", identifier)
 
             ad.ensureDirectory(args["download_dir"])
             ad.ensureDirectory(args["upload_dir"])
@@ -206,6 +224,9 @@ class App(tk.Tk):
                 log.error("Could not fetch metadata — aborting.")
                 return
 
+            series = metadata.get("metadata", {}).get("title", identifier)
+            log.info("Series: %s", series)
+
             pending = ad.getPendingFilenames(identifier, history, metadata)
             if not pending:
                 log.info("No new PDFs to process.")
@@ -217,10 +238,19 @@ class App(tk.Tk):
                                              retries=retries)
                 if not downloaded:
                     continue
-                applied = ad.ApplyMetadata(filename, args["pattern"], args["series"],
-                                           download_dir=args["download_dir"],
-                                           upload_dir=args["upload_dir"])
-                if applied:
+
+                if pattern:
+                    ok = ad.ApplyMetadata(filename, pattern, series,
+                                         download_dir=args["download_dir"],
+                                         upload_dir=args["upload_dir"])
+                else:
+                    src = os.path.join(args["download_dir"], filename)
+                    dst = os.path.join(args["upload_dir"], filename)
+                    shutil.move(src, dst)
+                    log.info("Moved %s -> %s", src, dst)
+                    ok = True
+
+                if ok:
                     history[identifier].append(filename)
                     ad.SaveHistory(history, args["history_file"])
 

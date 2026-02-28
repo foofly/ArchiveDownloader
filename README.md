@@ -15,10 +15,12 @@ Dependencies: `pikepdf`, `requests`
 ### 1. Download & process — GUI
 
 ```bash
+pipx run DownloaderGUI.py
+# or, if dependencies are already installed:
 python DownloaderGUI.py
 ```
 
-Opens a single-window tkinter interface. Fill in the required fields (Archive ID, Series, Pattern) and click **Run**. Log output streams into the window in real time; the form re-enables when the run completes. No extra dependencies beyond those already in `requirements.txt`.
+Paste an Archive.org item URL (e.g. `https://archive.org/details/byte-magazine`) and click **Run**. The series name is inferred automatically from the item's metadata. Pattern is optional — if provided, it must be a regex with capture groups used to build the output filename and inject PDF metadata; if omitted, files are moved to the upload directory as-is. Log output streams into the window in real time; the form re-enables when the run completes.
 
 ### 2. Download & process — CLI
 
