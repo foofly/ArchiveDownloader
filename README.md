@@ -12,7 +12,15 @@ Dependencies: `pikepdf`, `requests`
 
 ## Usage
 
-### 1. Download & process
+### 1. Download & process — GUI
+
+```bash
+python DownloaderGUI.py
+```
+
+Opens a single-window tkinter interface. Fill in the required fields (Archive ID, Series, Pattern) and click **Run**. Log output streams into the window in real time; the form re-enables when the run completes. No extra dependencies beyond those already in `requirements.txt`.
+
+### 2. Download & process — CLI
 
 ```bash
 python ArchiveDownloader.py \
@@ -34,7 +42,7 @@ python ArchiveDownloader.py \
 
 The script fetches all PDFs for the given Archive.org item, skips any already recorded in the history file, downloads each one, injects `/Author` and `/Title` metadata via pikepdf, moves the result to the upload directory, and saves progress after every successful file.
 
-### 2. Upload to Dropbox
+### 3. Upload to Dropbox
 
 ```bash
 python Uploader.py \
