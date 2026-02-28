@@ -1,3 +1,8 @@
+# /// script
+# requires-python = ">=3.10"
+# dependencies = ["pikepdf", "requests"]
+# ///
+
 import logging
 import queue
 import threading
